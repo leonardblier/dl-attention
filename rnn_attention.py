@@ -9,6 +9,8 @@ import os
 from theano import tensor as T
 from collections import OrderedDict
 
+from optimizers.optimizers import rmsprop
+
 class model(object):
     def __init__(self, nh, nc, ne, natt, attention_type='no_attention'):
         '''
@@ -45,7 +47,7 @@ class model(object):
             self.W_att_dec  = theano.shared(0.2 * numpy.random.uniform(-1.0, 1.0,\
                     (nh, natt)).astype(theano.config.floatX))
             self.W_att_out  = theano.shared(0.2 * numpy.random.uniform(-1.0, 1.0,\
-                   (natth)).astype(theano.config.floatX))
+                    (natth)).astype(theano.config.floatX))
             self.params += [self.W_att_enc, self.W_att_dec, self.W_att_out]
 
         idxs_enc, idxs_dec = T.ivector(), T.ivector() 
@@ -98,10 +100,12 @@ class model(object):
         self.classify = theano.function(inputs=[idxs_enc, idxs_dec], outputs=y_pred)
 
         # cost and gradients and learning rate
+        optimgrad = rmsprop(self.params)
         lr = T.scalar('lr')
         nll = -T.mean(T.log(probas)[T.arange(y.shape[0]), y])
         gradients = T.grad(nll, self.params)
-        updates = OrderedDict((p, p - lr * g) for p, g in zip(self.params, gradients))
+        #updates = OrderedDict((p, p - lr * g) for p, g in zip(self.params, gradients))
+        updates = optimgrad.updates(self.params, gradients, lr, 0.5)
         
         # theano functions
         self.train = theano.function([idxs_enc, idxs_dec, y, lr], nll, updates=updates)
